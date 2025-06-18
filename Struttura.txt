@@ -1,0 +1,19 @@
+WordSlideGenerator/
+├── Models/
+│   ├── SlideContent.vb
+│   └── ImageData.vb
+├── Constants/
+│   └── AppConstants.vb
+├── Utilities/
+│   ├── Logger.vb
+│   └── TextRecognizer.vb
+├── Core/
+│   ├── TextCleaner.vb
+│   ├── DocumentProcessor.vb
+│   └── SlideGenerator.vb
+├── Services/
+│   ├── OfficeManager.vb
+│   └── ImageManager.vb
+└── Forms/
+    ├── MainForm.vb
+    └── HelpForm.vb
