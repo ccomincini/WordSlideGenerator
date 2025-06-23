@@ -5,6 +5,8 @@ Imports Microsoft.Office.Core
 Imports Microsoft.Office.Interop.PowerPoint
 Imports Microsoft.Office.Interop.Word
 Imports WordSlideGenerator.WordSlideGenerator
+
+' RIMOSSO: Imports WordSlideGenerator.WordSlideGenerator (RIDONDANTE)
 Imports PPT = Microsoft.Office.Interop.PowerPoint
 Imports WRD = Microsoft.Office.Interop.Word
 
@@ -33,11 +35,6 @@ Public Class Form1
 
     Public Sub New()
         InitializeComponent()
-
-        ' Imposta le proprietà del form qui
-        Me.Text = AppConstants.APP_TITLE
-        Me.Size = New System.Drawing.Size(AppConstants.FORM_WIDTH, AppConstants.FORM_HEIGHT)
-
         InitializeServices()
     End Sub
 
@@ -108,7 +105,7 @@ Public Class Form1
             End If
 
             ' Processa documento e genera slide
-            logger.LogProcess("Generazione presentazione con logica macro VBA...")
+            logger.LogProcess("Generazione presentazione senza immagini...")
             Dim slideContents As List(Of SlideContent) = documentProcessor.ProcessDocument(officeManager.WordDocument)
 
             Dim sectionGenerator As New SectionGenerator(logger)
@@ -126,7 +123,6 @@ Public Class Form1
             btnStopProcess.Enabled = False
         End Try
     End Sub
-
 
     Private Sub UpdateUIAfterGeneration()
         lblStructureStatus.Text = $"Presentazione generata - {officeManager.GetSlideCount()} slide create"
@@ -174,7 +170,7 @@ Public Class Form1
         lblProgress.Text = $"Presentazione completata con {imageManager.ImageCount} placeholder per immagini"
         lblProgress.ForeColor = System.Drawing.Color.Green
 
-        MessageBox.Show($"Presentazione completata con successo!" & vbCrLf & vbCrLf &
+        MessageBox.Show($"Presentazione senza immagini completata con successo!" & vbCrLf & vbCrLf &
                         $"• {officeManager.GetSlideCount()} slide create" & vbCrLf &
                         $"• {imageManager.ImageCount} placeholder per immagini" & vbCrLf & vbCrLf &
                         "La presentazione PowerPoint è ora disponibile per l'editing.",
@@ -202,20 +198,16 @@ Public Class Form1
         If result = DialogResult.Yes Then
             logger.LogInfo("Chiusura applicazione richiesta dall'utente...")
             officeManager.ReleaseAllResources()
-            System.Windows.Forms.Application.Exit()  ' <--- Modifica qui
+            System.Windows.Forms.Application.Exit()
         End If
     End Sub
 
     Private Sub BtnHelp_Click(sender As Object, e As EventArgs)
-        ' Determina il percorso completo del file Help.html nella sottocartella Help
-        Dim helpFilePath As String = IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "Help", "Help.html")  ' <--- Modifica qui
+        Dim helpFilePath As String = IO.Path.Combine(System.Windows.Forms.Application.StartupPath, "Help", "Help.html")
 
-        ' Verifica che il file esista
         If IO.File.Exists(helpFilePath) Then
-            ' Visualizza la guida
             Help.ShowHelp(Me, helpFilePath)
         Else
-            ' Mostra un messaggio di errore se il file non viene trovato
             MessageBox.Show("File della guida non trovato!", "Errore", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End If
     End Sub
@@ -227,11 +219,10 @@ Public Class Form1
     End Sub
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-
     End Sub
 
     Private Sub CreateImageGenerationGroup()
-        Dim grpImages As New GroupBox()
+        grpImages = New GroupBox()
         With grpImages
             .Text = "3. Generazione Immagini (Opzionale)"
             .Location = New System.Drawing.Point(20, 260)
@@ -289,8 +280,6 @@ Public Class Form1
         grpImages.Controls.Add(btnGenerateImages)
         grpImages.Controls.Add(btnSkipImages)
         grpImages.Controls.Add(btnStopProcess)
-
-        Me.grpImages = grpImages
     End Sub
 
     Private Sub CreateControlButtons()
@@ -311,11 +300,7 @@ Public Class Form1
             .FlatStyle = FlatStyle.System
         End With
         AddHandler btnHelp.Click, AddressOf BtnHelp_Click
-
-        Me.btnCloseApp = btnCloseApp
-        Me.btnHelp = btnHelp
     End Sub
-
 
     Private Sub CreateUserInterface()
         ' File selection group
@@ -342,22 +327,22 @@ Public Class Form1
 
         ' Structure generation group
         Dim grpStructure As New GroupBox()
-        grpStructure.Text = "2. Generazione Presentazione Completa"
+        grpStructure.Text = "2. Generazione Presentazione Senza Immagini"
         grpStructure.Location = New System.Drawing.Point(20, 120)
         grpStructure.Size = New System.Drawing.Size(640, 120)
 
         btnGeneratePresentation = New Button()
-        btnGeneratePresentation.Text = "Genera Presentazione Completa"
+        btnGeneratePresentation.Text = "Genera Presentazione Senza Immagini"
         btnGeneratePresentation.Location = New System.Drawing.Point(20, 30)
-        btnGeneratePresentation.Size = New System.Drawing.Size(200, 35)
+        btnGeneratePresentation.Size = New System.Drawing.Size(220, 35)
         btnGeneratePresentation.Enabled = False
         btnGeneratePresentation.FlatStyle = FlatStyle.System
         AddHandler btnGeneratePresentation.Click, AddressOf BtnGeneratePresentation_Click
 
         lblStructureStatus = New Label()
         lblStructureStatus.Text = AppConstants.READY_FOR_GENERATION
-        lblStructureStatus.Location = New System.Drawing.Point(240, 35)
-        lblStructureStatus.Size = New System.Drawing.Size(380, 20)
+        lblStructureStatus.Location = New System.Drawing.Point(250, 35)
+        lblStructureStatus.Size = New System.Drawing.Size(370, 20)
         lblStructureStatus.ForeColor = System.Drawing.Color.Gray
 
         Dim lblFeatures As New Label()
@@ -390,24 +375,25 @@ Public Class Form1
         ' Add all controls to form
         Me.Controls.Add(grpFileSelection)
         Me.Controls.Add(grpStructure)
-        Me.Controls.Add(Me.grpImages)
+        Me.Controls.Add(grpImages)
         Me.Controls.Add(txtLog)
-        Me.Controls.Add(Me.btnCloseApp)
-        Me.Controls.Add(Me.btnHelp)
+        Me.Controls.Add(btnCloseApp)
+        Me.Controls.Add(btnHelp)
     End Sub
-
 
     Private Sub InitializeComponent()
         Me.SuspendLayout()
-        '
-        'Form1
-        '
-        Me.ClientSize = New System.Drawing.Size(1126, 595)
+
+        ' Form properties
+        Me.Text = AppConstants.APP_TITLE
+        Me.Size = New System.Drawing.Size(AppConstants.FORM_WIDTH, AppConstants.FORM_HEIGHT)
+        Me.StartPosition = FormStartPosition.CenterScreen
+        Me.FormBorderStyle = FormBorderStyle.FixedDialog
+        Me.MaximizeBox = False
+        Me.ClientSize = New System.Drawing.Size(700, 600)
         Me.Name = "Form1"
+
         Me.ResumeLayout(False)
-
         CreateUserInterface()
-
-
     End Sub
 End Class

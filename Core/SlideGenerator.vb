@@ -1,12 +1,13 @@
-Imports Microsoft.Office.Core
 Imports Microsoft.Office.Interop.PowerPoint
-Namespace WordSlideGenerator
+Imports Microsoft.Office.Core
 
+Namespace WordSlideGenerator
     Public Class SlideGenerator
         Private presentation As Presentation
         Private logger As Logger
         Private imageManager As ImageManager
         Private sectionGenerator As SectionGenerator
+        Private slideCounter As Integer = 0
 
         Public Sub New(presentation As Presentation, logger As Logger, imageManager As ImageManager, sectionGenerator As SectionGenerator)
             Me.presentation = presentation
@@ -15,275 +16,293 @@ Namespace WordSlideGenerator
             Me.sectionGenerator = sectionGenerator
         End Sub
 
+        ''' <summary>
+        ''' Genera tutte le slide dalla lista di contenuti elaborati
+        ''' </summary>
         Public Sub GenerateSlides(slideContents As List(Of SlideContent))
-            Dim slideCount As Integer = 0
+            logger.LogProcess("Inizio generazione slide...")
 
-            For Each content As SlideContent In slideContents
-                Select Case content.SlideType
-                    Case SlideContentType.CourseModule
-                        CreateModuleSlide(content)
-                        slideCount += 1
+            Try
+                For Each content As SlideContent In slideContents
+                    slideCounter += 1
 
-                    Case SlideContentType.Lesson
-                        CreateLessonSlide(content)
-                        slideCount += 1
+                    Select Case content.ContentType
+                        Case SlideContentType.CourseModule
+                            CreateModuleSlide(content, slideCounter)
 
-                    Case SlideContentType.Content
-                        CreateContentSlide(content)
-                        slideCount += 1
-                End Select
-            Next
+                        Case SlideContentType.Lesson
+                            CreateLessonSlide(content, slideCounter)
 
+                        Case SlideContentType.Content
+                            CreateContentSlide(content, slideCounter)
+                    End Select
 
-            logger.LogSuccess($"Generazione completata: {slideCount} slide create")
-            sectionGenerator.CreateSections(presentation, slideContents)
+                    ' Aggiorna slideIndex nell'ImageManager se la slide ha un'immagine
+                    If Not String.IsNullOrWhiteSpace(content.ImageDescription) Then
+                        imageManager.UpdateSlideIndex(content.ImageDescription, slideCounter)
+                    End If
+                Next
+
+                logger.LogSuccess($"Generazione slide completata: {slideCounter} slide create")
+
+            Catch ex As Exception
+                logger.LogError("Errore durante la generazione slide", ex)
+                Throw
+            End Try
         End Sub
 
-        Private Sub CreateModuleSlide(content As SlideContent)
+        ''' <summary>
+        ''' Crea slide separatrice per modulo didattico
+        ''' </summary>
+        Private Sub CreateModuleSlide(content As SlideContent, slideIndex As Integer)
             Try
-                ' Layout "Solo titolo" per slide modulo
-                Dim newSlide As Slide = presentation.Slides.Add(presentation.Slides.Count + 1, PpSlideLayout.ppLayoutTitleOnly)
+                Dim slide As Slide = presentation.Slides.Add(slideIndex, PpSlideLayout.ppLayoutTitleOnly)
 
-                ' Imposta titolo del modulo
-                If newSlide.Shapes.HasTitle Then
-                    newSlide.Shapes.Title.TextFrame.TextRange.Text = "MODULO: " & content.Title
+                ' Configura titolo del modulo
+                Dim titleShape As Shape = slide.Shapes.Title
+                With titleShape.TextFrame.TextRange
+                    .Text = content.Title
+                    .Font.Name = AppConstants.DEFAULT_FONT_NAME
+                    .Font.Size = AppConstants.TITLE_FONT_SIZE
+                    .Font.Color.RGB = AppConstants.TITLE_COLOR
+                    .Font.Bold = MsoTriState.msoTrue
+                    .ParagraphFormat.Alignment = PpParagraphAlignment.ppAlignCenter
+                End With
 
-                    With newSlide.Shapes.Title.TextFrame.TextRange
-                        .Font.Name = AppConstants.DEFAULT_FONT_NAME
-                        .Font.Size = AppConstants.TITLE_FONT_SIZE
-                        .Font.Bold = True
-                        .Font.Color.RGB = AppConstants.TITLE_COLOR
-                        .ParagraphFormat.Alignment = PpParagraphAlignment.ppAlignCenter
-                    End With
-                End If
+                ' Applica sfondo al modulo
+                ApplyModuleBackground(slide)
 
-                ' Sfondo colorato
-                newSlide.Background.Fill.Visible = MsoTriState.msoTrue
-                newSlide.Background.Fill.ForeColor.RGB = AppConstants.MODULE_BACKGROUND_COLOR
+                ' Crea sezione PowerPoint per il modulo
+                sectionGenerator.CreateModuleSection(content.Title, slideIndex)
 
-                logger.LogInfo($"Slide separatrice modulo creata: {content.Title}")
+                logger.LogInfo($"📁 Slide modulo creata: {content.Title}")
 
             Catch ex As Exception
                 logger.LogError($"Errore creazione slide modulo: {content.Title}", ex)
+                Throw
             End Try
         End Sub
 
-
-        Private Sub CreateLessonSlide(content As SlideContent)
+        ''' <summary>
+        ''' Crea slide di apertura per lezione
+        ''' </summary>
+        Private Sub CreateLessonSlide(content As SlideContent, slideIndex As Integer)
             Try
-                Dim newSlide As Slide = presentation.Slides.Add(presentation.Slides.Count + 1, PpSlideLayout.ppLayoutText)
+                Dim slide As Slide = presentation.Slides.Add(slideIndex, PpSlideLayout.ppLayoutText)
 
-                ' Estrai solo il titolo della lezione (senza "Lezione X:")
-                Dim lessonTitleOnly As String = TextRecognizer.EstraiSoloTitoloLezione(content.Title)
+                ' Configura titolo della lezione
+                Dim titleShape As Shape = slide.Shapes.Title
+                With titleShape.TextFrame.TextRange
+                    .Text = content.Title
+                    .Font.Name = AppConstants.DEFAULT_FONT_NAME
+                    .Font.Size = AppConstants.TITLE_FONT_SIZE
+                    .Font.Color.RGB = AppConstants.TITLE_COLOR
+                    .Font.Bold = MsoTriState.msoTrue
+                End With
 
-                ' Imposta titolo lezione
-                If newSlide.Shapes.HasTitle Then
-                    newSlide.Shapes.Title.TextFrame.TextRange.Text = lessonTitleOnly
-
-                    With newSlide.Shapes.Title.TextFrame.TextRange
-                        .Font.Name = AppConstants.DEFAULT_FONT_NAME
-                        .Font.Size = 44
-                        .Font.Bold = True
-                        .Font.Color.RGB = AppConstants.TITLE_COLOR
-                        .ParagraphFormat.Alignment = PpParagraphAlignment.ppAlignCenter
-                    End With
-                End If
-
-                ' Contenuto standard panoramica
-                Try
-                    With newSlide.Shapes.Placeholders(2).TextFrame.TextRange
-                        .Text = "Panoramica della Lezione" & vbCrLf & vbCrLf &
-                                "Obiettivi di apprendimento" & vbCrLf &
-                                "Argomenti principali" & vbCrLf &
-                                "Attività pratiche"
+                ' Aggiungi contenuto se presente
+                If Not String.IsNullOrWhiteSpace(content.Text) Then
+                    Dim contentShape As Shape = slide.Shapes.Placeholders(2)
+                    With contentShape.TextFrame.TextRange
+                        .Text = content.Text
                         .Font.Name = AppConstants.DEFAULT_FONT_NAME
                         .Font.Size = AppConstants.CONTENT_FONT_SIZE
                         .Font.Color.RGB = AppConstants.CONTENT_COLOR
-                        .ParagraphFormat.Alignment = PpParagraphAlignment.ppAlignLeft
-                        .ParagraphFormat.Bullet.Visible = MsoTriState.msoFalse
                     End With
-                Catch
-                    ' Layout alternativo se placeholder non disponibile
-                End Try
+                End If
 
-                ' Sfondo leggero
-                newSlide.Background.Fill.Visible = MsoTriState.msoTrue
-                newSlide.Background.Fill.ForeColor.RGB = AppConstants.LESSON_BACKGROUND_COLOR
+                ' Applica sfondo alla lezione
+                ApplyLessonBackground(slide)
 
-                ' Note per il docente
-                SetSlideNotes(newSlide, $"Slide di apertura per: {content.Title}")
+                ' Aggiungi note del relatore se presenti
+                AddSpeakerNotes(slide, content)
 
-                logger.LogInfo($"Slide apertura lezione creata: {lessonTitleOnly}")
+                ' Crea sezione PowerPoint per la lezione
+                sectionGenerator.CreateLessonSection(content.Title, slideIndex)
+
+                logger.LogInfo($"📖 Slide lezione creata: {content.Title}")
 
             Catch ex As Exception
-                logger.LogError($"Errore creazione slide apertura: {content.Title}", ex)
+                logger.LogError($"Errore creazione slide lezione: {content.Title}", ex)
+                Throw
             End Try
         End Sub
 
-        Private Sub CreateContentSlide(content As SlideContent)
+        ''' <summary>
+        ''' Crea slide di contenuto normale
+        ''' </summary>
+        Private Sub CreateContentSlide(content As SlideContent, slideIndex As Integer)
             Try
-                Dim newSlide As Slide
-                Dim cleanText As String = TextCleaner.PulisciTestoCompleto(content.Text)
+                Dim layout As PpSlideLayout
+                Dim hasImage As Boolean = Not String.IsNullOrWhiteSpace(content.ImageDescription)
 
-                logger.LogInfo($"Creazione slide: {content.Title}")
-
-                If content.HasImage() Then
-                    ' Layout "Due contenuti" per slide con immagine
-                    newSlide = presentation.Slides.Add(presentation.Slides.Count + 1, PpSlideLayout.ppLayoutTwoObjects)
-                    SetupTwoColumnSlide(newSlide, content, cleanText)
-
-                    ' Registra per generazione immagini
-                    imageManager.RegisterImage(presentation.Slides.Count, content.ImageDescription, 480, 150, 250, 350)
+                ' Scegli layout in base alla presenza di immagini
+                If hasImage Then
+                    layout = PpSlideLayout.ppLayoutTwoObjects
                 Else
-                    ' Layout "Titolo e testo" per slide senza immagine
-                    newSlide = presentation.Slides.Add(presentation.Slides.Count + 1, PpSlideLayout.ppLayoutText)
-                    SetupSingleColumnSlide(newSlide, content, cleanText)
+                    layout = PpSlideLayout.ppLayoutText
                 End If
 
-                ' Imposta note complete nella slide
-                Dim completeNotes As String = content.GetCompleteNotes()
-                If completeNotes <> "" Then
-                    SetSlideNotes(newSlide, TextCleaner.PulisciTestoCompleto(completeNotes))
+                Dim slide As Slide = presentation.Slides.Add(slideIndex, layout)
+
+                ' Configura titolo
+                ConfigureSlideTitle(slide, content.Title)
+
+                ' Configura contenuto testuale
+                ConfigureSlideContent(slide, content.Text, hasImage)
+
+                ' Crea placeholder immagine se necessario
+                If hasImage Then
+                    CreateImagePlaceholder(slide, content.ImageDescription, slideIndex)
                 End If
 
-                logger.LogSuccess($"Slide creata: {content.Title}")
+                ' Aggiungi note del relatore
+                AddSpeakerNotes(slide, content)
+
+                logger.LogInfo($"📄 Slide contenuto creata: {content.Title}")
 
             Catch ex As Exception
-                logger.LogError($"Errore creazione slide: {content.Title}", ex)
+                logger.LogError($"Errore creazione slide contenuto: {content.Title}", ex)
+                Throw
             End Try
         End Sub
 
-        Private Sub SetupTwoColumnSlide(slide As Slide, content As SlideContent, cleanText As String)
-            ' Imposta titolo
-            If content.Title <> "" Then
-                slide.Shapes.Title.TextFrame.TextRange.Text = content.Title
-                FormatTitle(slide.Shapes.Title.TextFrame.TextRange)
-            End If
-
-            ' Contenuto testuale nel primo placeholder (sinistra)
-            Try
-                With slide.Shapes.Placeholders(2).TextFrame.TextRange
-                    .Text = cleanText
-                    .Font.Name = AppConstants.DEFAULT_FONT_NAME
-                    .Font.Size = AppConstants.CONTENT_FONT_SIZE_TWO_COLUMN
-                    .Font.Color.RGB = AppConstants.CONTENT_COLOR
-                    .ParagraphFormat.Alignment = PpParagraphAlignment.ppAlignLeft
-                    .ParagraphFormat.SpaceAfter = 6
-                    .ParagraphFormat.SpaceBefore = 0
-                    .ParagraphFormat.Bullet.Visible = MsoTriState.msoFalse
-                End With
-
-                ' Configura il textframe per il word wrap
-                With slide.Shapes.Placeholders(2).TextFrame
-                    .WordWrap = MsoTriState.msoTrue
-                    .AutoSize = PpAutoSize.ppAutoSizeShapeToFitText
-                    .MarginLeft = 20
-                    .MarginRight = 20
-                    .MarginTop = 20
-                    .MarginBottom = 20
-                End With
-            Catch ex As Exception
-                logger.LogError("Errore impostazione contenuto principale", ex)
-            End Try
-
-            ' Placeholder immagine nel secondo placeholder (destra)
-            Try
-                With slide.Shapes.Placeholders(3).TextFrame.TextRange
-                    .Text = "📷 IMMAGINE SUGGERITA:" & vbCrLf & vbCrLf & TextCleaner.PulisciTestoCompleto(content.ImageDescription)
-                    .Font.Name = AppConstants.DEFAULT_FONT_NAME
-                    .Font.Size = AppConstants.IMAGE_PLACEHOLDER_FONT_SIZE
-                    .Font.Italic = True
-                    .Font.Color.RGB = AppConstants.IMAGE_PLACEHOLDER_COLOR
-                    .ParagraphFormat.Alignment = PpParagraphAlignment.ppAlignLeft
-                    .ParagraphFormat.Bullet.Visible = MsoTriState.msoFalse
-                End With
-
-                ' Configura il textframe per il placeholder immagine
-                With slide.Shapes.Placeholders(3).TextFrame
-                    .WordWrap = MsoTriState.msoTrue
-                    .AutoSize = PpAutoSize.ppAutoSizeShapeToFitText
-                    .MarginLeft = 15
-                    .MarginRight = 15
-                    .MarginTop = 15
-                    .MarginBottom = 15
-                End With
-
-                ' Stile visivo placeholder
-                Try
-                    With slide.Shapes.Placeholders(3).Line
-                        .Visible = MsoTriState.msoTrue
-                        .ForeColor.RGB = RGB(200, 200, 200)
-                        .Weight = 1
-                    End With
-
-                    With slide.Shapes.Placeholders(3).Fill
-                        .Visible = MsoTriState.msoTrue
-                        .ForeColor.RGB = RGB(248, 248, 248)
-                        .Transparency = 0
-                    End With
-                Catch
-                    ' Ignora errori di formattazione se non supportati
-                End Try
-            Catch ex As Exception
-                logger.LogError("Errore impostazione placeholder immagine", ex)
-            End Try
-        End Sub
-
-        Private Sub SetupSingleColumnSlide(slide As Slide, content As SlideContent, cleanText As String)
-            ' Imposta titolo
-            If content.Title <> "" Then
-                slide.Shapes.Title.TextFrame.TextRange.Text = content.Title
-                FormatTitle(slide.Shapes.Title.TextFrame.TextRange)
-            End If
-
-            ' Contenuto nel placeholder del testo
-            Try
-                With slide.Shapes.Placeholders(2).TextFrame.TextRange
-                    .Text = cleanText
-                    .Font.Name = AppConstants.DEFAULT_FONT_NAME
-                    .Font.Size = AppConstants.CONTENT_FONT_SIZE
-                    .Font.Color.RGB = AppConstants.CONTENT_COLOR
-                    .ParagraphFormat.Alignment = PpParagraphAlignment.ppAlignLeft
-                    .ParagraphFormat.SpaceAfter = 8
-                    .ParagraphFormat.SpaceBefore = 0
-                    .ParagraphFormat.Bullet.Visible = MsoTriState.msoFalse
-                End With
-
-                ' Configura il textframe
-                With slide.Shapes.Placeholders(2).TextFrame
-                    .WordWrap = MsoTriState.msoTrue
-                    .AutoSize = PpAutoSize.ppAutoSizeShapeToFitText
-                    .MarginLeft = 30
-                    .MarginRight = 30
-                    .MarginTop = 30
-                    .MarginBottom = 30
-                End With
-            Catch ex As Exception
-                logger.LogError("Errore impostazione contenuto slide", ex)
-            End Try
-        End Sub
-
-        Private Sub FormatTitle(titleRange As TextRange)
-            With titleRange
+        ''' <summary>
+        ''' Configura il titolo della slide
+        ''' </summary>
+        Private Sub ConfigureSlideTitle(slide As Slide, title As String)
+            Dim titleShape As Shape = slide.Shapes.Title
+            With titleShape.TextFrame.TextRange
+                .Text = title
                 .Font.Name = AppConstants.DEFAULT_FONT_NAME
                 .Font.Size = AppConstants.TITLE_FONT_SIZE
-                .Font.Bold = True
                 .Font.Color.RGB = AppConstants.TITLE_COLOR
+                .Font.Bold = MsoTriState.msoTrue
             End With
         End Sub
 
-        Private Sub SetSlideNotes(slide As Slide, notes As String)
-            If notes <> "" Then
-                Try
-                    slide.NotesPage.Shapes.Placeholders(2).TextFrame.TextRange.Text = notes
-                Catch
-                    Try
-                        slide.NotesPage.Shapes(2).TextFrame.TextRange.Text = notes
-                    Catch
-                        ' Ignora errori note se non disponibili
-                    End Try
-                End Try
+        ''' <summary>
+        ''' Configura il contenuto testuale della slide
+        ''' </summary>
+        Private Sub ConfigureSlideContent(slide As Slide, text As String, hasImage As Boolean)
+            If String.IsNullOrWhiteSpace(text) Then Return
+
+            Dim contentShape As Shape = slide.Shapes.Placeholders(2)
+            Dim fontSize As Integer = If(hasImage, AppConstants.CONTENT_FONT_SIZE_TWO_COLUMN, AppConstants.CONTENT_FONT_SIZE)
+
+            With contentShape.TextFrame.TextRange
+                .Text = text
+                .Font.Name = AppConstants.DEFAULT_FONT_NAME
+                .Font.Size = fontSize
+                .Font.Color.RGB = AppConstants.CONTENT_COLOR
+            End With
+
+            ' Configura il TextFrame per gestire correttamente il wrapping
+            With contentShape.TextFrame
+                .WordWrap = MsoTriState.msoTrue
+                .AutoSize = PpAutoSize.ppAutoSizeShapeToFitText
+                .MarginBottom = 10
+                .MarginTop = 10
+                .MarginLeft = 10
+                .MarginRight = 10
+            End With
+        End Sub
+
+        ''' <summary>
+        ''' Crea placeholder descrittivo per l'immagine
+        ''' </summary>
+        Private Sub CreateImagePlaceholder(slide As Slide, imageDescription As String, slideIndex As Integer)
+            Try
+                ' Ottieni il placeholder per le immagini (terzo placeholder nel layout TwoObjects)
+                Dim imagePlaceholder As Shape = slide.Shapes.Placeholders(3)
+
+                ' Crea testo descrittivo per il placeholder
+                Dim placeholderText As String = $"[IMMAGINE]" & vbCrLf & vbCrLf &
+                                              $"Descrizione:" & vbCrLf &
+                                              imageDescription & vbCrLf & vbCrLf &
+                                              $"Slide: {slideIndex}"
+
+                ' Configura il placeholder come testo
+                With imagePlaceholder.TextFrame.TextRange
+                    .Text = placeholderText
+                    .Font.Name = AppConstants.DEFAULT_FONT_NAME
+                    .Font.Size = AppConstants.IMAGE_PLACEHOLDER_FONT_SIZE
+                    .Font.Color.RGB = AppConstants.IMAGE_PLACEHOLDER_COLOR
+                    .Font.Italic = MsoTriState.msoTrue
+                    .ParagraphFormat.Alignment = PpParagraphAlignment.ppAlignCenter
+                End With
+
+                ' Configura il TextFrame
+                With imagePlaceholder.TextFrame
+                    .WordWrap = MsoTriState.msoTrue
+                    .AutoSize = PpAutoSize.ppAutoSizeShapeToFitText
+                    .VerticalAnchor = MsoVerticalAnchor.msoAnchorMiddle
+                End With
+
+                logger.LogInfo($"🖼️ Placeholder immagine creato per slide {slideIndex}")
+
+            Catch ex As Exception
+                logger.LogError($"Errore creazione placeholder immagine slide {slideIndex}", ex)
+            End Try
+        End Sub
+
+        ''' <summary>
+        ''' Aggiunge note del relatore alla slide
+        ''' </summary>
+        Private Sub AddSpeakerNotes(slide As Slide, content As SlideContent)
+            Dim notes As String = ""
+
+            ' Combina note del relatore e appunti
+            If Not String.IsNullOrWhiteSpace(content.SpeakerNotes) Then
+                notes = "VOCE NARRANTE:" & vbCrLf & content.SpeakerNotes
             End If
+
+            If Not String.IsNullOrWhiteSpace(content.Notes) Then
+                If notes <> "" Then notes &= vbCrLf & vbCrLf
+                notes &= "APPUNTI:" & vbCrLf & content.Notes
+            End If
+
+            ' Aggiungi descrizione immagine alle note se presente
+            If Not String.IsNullOrWhiteSpace(content.ImageDescription) Then
+                If notes <> "" Then notes &= vbCrLf & vbCrLf
+                notes &= "IMMAGINE SUGGERITA:" & vbCrLf & content.ImageDescription
+            End If
+
+            ' Applica le note alla slide
+            If notes <> "" Then
+                slide.NotesPage.Shapes.Placeholders(2).TextFrame.TextRange.Text = notes
+                logger.LogInfo($"📝 Note aggiunte alla slide: {content.Title}")
+            End If
+        End Sub
+
+        ''' <summary>
+        ''' Applica sfondo specifico per slide modulo
+        ''' </summary>
+        Private Sub ApplyModuleBackground(slide As Slide)
+            Try
+                With slide.Background.Fill
+                    .Visible = MsoTriState.msoTrue
+                    .ForeColor.RGB = AppConstants.MODULE_BACKGROUND_COLOR
+                    .Transparency = 0.1
+                End With
+            Catch ex As Exception
+                logger.LogWarning($"Impossibile applicare sfondo modulo: {ex.Message}")
+            End Try
+        End Sub
+
+        ''' <summary>
+        ''' Applica sfondo specifico per slide lezione
+        ''' </summary>
+        Private Sub ApplyLessonBackground(slide As Slide)
+            Try
+                With slide.Background.Fill
+                    .Visible = MsoTriState.msoTrue
+                    .ForeColor.RGB = AppConstants.LESSON_BACKGROUND_COLOR
+                    .Transparency = 0.05
+                End With
+            Catch ex As Exception
+                logger.LogWarning($"Impossibile applicare sfondo lezione: {ex.Message}")
+            End Try
         End Sub
     End Class
 End Namespace

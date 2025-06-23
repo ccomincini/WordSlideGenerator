@@ -1,6 +1,6 @@
 Imports Microsoft.Office.Interop.Word
-Namespace WordSlideGenerator
 
+Namespace WordSlideGenerator
     Public Class DocumentProcessor
         Private logger As Logger
         Private imageManager As ImageManager
@@ -27,6 +27,7 @@ Namespace WordSlideGenerator
                 If TextRecognizer.RiconosceModulo(paraText) Then
                     ' Salva slide precedente se presente
                     If currentSlide IsNot Nothing Then
+                        FinalizeSlideContent(currentSlide)
                         slides.Add(currentSlide)
                     End If
 
@@ -35,11 +36,11 @@ Namespace WordSlideGenerator
 
                     currentSlide = New SlideContent(moduleTitle, SlideContentType.CourseModule)
 
-
                     ' Gestione LEZIONI
                 ElseIf TextRecognizer.RiconosceLezione(paraText) Then
                     ' Salva slide precedente se presente
                     If currentSlide IsNot Nothing Then
+                        FinalizeSlideContent(currentSlide)
                         slides.Add(currentSlide)
                     End If
 
@@ -52,6 +53,7 @@ Namespace WordSlideGenerator
                 ElseIf TextRecognizer.RiconosceSlide(paraText) Then
                     ' Salva slide precedente se presente
                     If currentSlide IsNot Nothing Then
+                        FinalizeSlideContent(currentSlide)
                         slides.Add(currentSlide)
                     End If
 
@@ -67,6 +69,7 @@ Namespace WordSlideGenerator
 
             ' Salva ultima slide se presente
             If currentSlide IsNot Nothing Then
+                FinalizeSlideContent(currentSlide)
                 slides.Add(currentSlide)
             End If
 
@@ -115,16 +118,45 @@ Namespace WordSlideGenerator
                 Case "voce"
                     If slide.SpeakerNotes <> "" Then slide.SpeakerNotes &= vbCrLf
                     slide.SpeakerNotes &= paraText
+
                 Case "testo"
                     If slide.Text <> "" Then slide.Text &= vbCrLf
                     slide.Text &= paraText
+
                 Case "immagine"
                     If slide.ImageDescription <> "" Then slide.ImageDescription &= vbCrLf
                     slide.ImageDescription &= paraText
+
                 Case "appunti"
                     If slide.Notes <> "" Then slide.Notes &= vbCrLf
                     slide.Notes &= paraText
             End Select
+        End Sub
+
+        ''' <summary>
+        ''' Finalizza il contenuto della slide applicando la pulizia del testo tramite TextCleaner
+        ''' </summary>
+        Private Sub FinalizeSlideContent(slide As SlideContent)
+            ' Applica pulizia testo con TextCleaner per tutti i campi testuali
+            If Not String.IsNullOrWhiteSpace(slide.Text) Then
+                slide.Text = TextCleaner.PulisciTestoCompleto(slide.Text)
+            End If
+
+            If Not String.IsNullOrWhiteSpace(slide.SpeakerNotes) Then
+                slide.SpeakerNotes = TextCleaner.PulisciTestoCompleto(slide.SpeakerNotes)
+            End If
+
+            If Not String.IsNullOrWhiteSpace(slide.ImageDescription) Then
+                slide.ImageDescription = TextCleaner.PulisciTestoCompleto(slide.ImageDescription)
+                ' Registra immagine nel manager usando il nuovo overload semplificato
+                imageManager.RegisterImage(slide.ImageDescription)
+            End If
+
+            If Not String.IsNullOrWhiteSpace(slide.Notes) Then
+                slide.Notes = TextCleaner.PulisciTestoCompleto(slide.Notes)
+            End If
+
+            logger.LogInfo($"✅ Slide finalizzata: {slide.Title}")
         End Sub
     End Class
 End Namespace

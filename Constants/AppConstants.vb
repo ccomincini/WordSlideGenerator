@@ -1,10 +1,9 @@
 Imports System.Drawing
 
 Namespace WordSlideGenerator
-
     Public Class AppConstants
         ' Configurazioni UI
-        Public Const APP_TITLE As String = "Word to PowerPoint Converter - Macro VBA Edition"
+        Public Const APP_TITLE As String = "Word to PowerPoint Converter - Senza Immagini"
         Public Const FORM_WIDTH As Integer = 700
         Public Const FORM_HEIGHT As Integer = 600
 
@@ -32,6 +31,9 @@ Namespace WordSlideGenerator
         Public Const NO_FILE_SELECTED As String = "Nessun file selezionato"
         Public Const READY_FOR_GENERATION As String = "Pronto per generazione"
         Public Const IMAGES_FUTURE_FEATURE As String = "Funzionalità disponibile in versione futura con integrazione AI."
-    End Class
 
+        ' Messaggi specifici per presentazioni senza immagini
+        Public Const PRESENTATION_WITHOUT_IMAGES_SUCCESS As String = "Presentazione senza immagini completata con successo!"
+        Public Const GENERATION_WITH_VBA_LOGIC As String = "Generazione presentazione senza immagini..."
+    End Class
 End Namespace
