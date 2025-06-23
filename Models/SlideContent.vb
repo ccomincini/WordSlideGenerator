@@ -7,6 +7,16 @@
         Public Property Notes As String = ""
         Public Property SlideType As SlideContentType
 
+        ' AGGIUNTA: Property ContentType per compatibilità con SlideGenerator
+        Public Property ContentType As SlideContentType
+            Get
+                Return SlideType
+            End Get
+            Set(value As SlideContentType)
+                SlideType = value
+            End Set
+        End Property
+
         Public Sub New()
         End Sub
 

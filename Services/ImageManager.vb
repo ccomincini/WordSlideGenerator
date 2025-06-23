@@ -7,16 +7,16 @@
             Me.logger = logger
         End Sub
 
-        ' METODO ORIGINALE (mantienilo come è)
+        ' METODO ORIGINALE (CORRETTO)
         Public Sub RegisterImage(slideIndex As Integer, description As String, left As Integer, top As Integer, width As Integer, height As Integer)
-            ' Implementazione esistente...
+            ' Implementazione esistente... CORRETTO: Usa PosLeft, PosTop, PosWidth, PosHeight
             Dim imageData As New ImageData With {
                 .SlideIndex = slideIndex,
                 .Description = description,
-                .Left = left,
-                .Top = top,
-                .Width = width,
-                .Height = height
+                .PosLeft = left,
+                .PosTop = top,
+                .PosWidth = width,
+                .PosHeight = height
             }
             images.Add(imageData)
             logger.LogInfo($"🖼️ Immagine registrata: {description}")

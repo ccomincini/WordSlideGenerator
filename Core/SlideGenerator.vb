@@ -1,5 +1,6 @@
 Imports Microsoft.Office.Interop.PowerPoint
 Imports Microsoft.Office.Core
+Imports PPTShape = Microsoft.Office.Interop.PowerPoint.Shape
 
 Namespace WordSlideGenerator
     Public Class SlideGenerator
@@ -59,7 +60,7 @@ Namespace WordSlideGenerator
                 Dim slide As Slide = presentation.Slides.Add(slideIndex, PpSlideLayout.ppLayoutTitleOnly)
 
                 ' Configura titolo del modulo
-                Dim titleShape As Shape = slide.Shapes.Title
+                Dim titleShape As PPTShape = slide.Shapes.Title
                 With titleShape.TextFrame.TextRange
                     .Text = content.Title
                     .Font.Name = AppConstants.DEFAULT_FONT_NAME
@@ -91,7 +92,7 @@ Namespace WordSlideGenerator
                 Dim slide As Slide = presentation.Slides.Add(slideIndex, PpSlideLayout.ppLayoutText)
 
                 ' Configura titolo della lezione
-                Dim titleShape As Shape = slide.Shapes.Title
+                Dim titleShape As PPTShape = slide.Shapes.Title
                 With titleShape.TextFrame.TextRange
                     .Text = content.Title
                     .Font.Name = AppConstants.DEFAULT_FONT_NAME
@@ -102,7 +103,7 @@ Namespace WordSlideGenerator
 
                 ' Aggiungi contenuto se presente
                 If Not String.IsNullOrWhiteSpace(content.Text) Then
-                    Dim contentShape As Shape = slide.Shapes.Placeholders(2)
+                    Dim contentShape As PPTShape = slide.Shapes.Placeholders(2)
                     With contentShape.TextFrame.TextRange
                         .Text = content.Text
                         .Font.Name = AppConstants.DEFAULT_FONT_NAME
@@ -171,7 +172,7 @@ Namespace WordSlideGenerator
         ''' Configura il titolo della slide
         ''' </summary>
         Private Sub ConfigureSlideTitle(slide As Slide, title As String)
-            Dim titleShape As Shape = slide.Shapes.Title
+            Dim titleShape As PPTShape = slide.Shapes.Title
             With titleShape.TextFrame.TextRange
                 .Text = title
                 .Font.Name = AppConstants.DEFAULT_FONT_NAME
@@ -187,7 +188,7 @@ Namespace WordSlideGenerator
         Private Sub ConfigureSlideContent(slide As Slide, text As String, hasImage As Boolean)
             If String.IsNullOrWhiteSpace(text) Then Return
 
-            Dim contentShape As Shape = slide.Shapes.Placeholders(2)
+            Dim contentShape As PPTShape = slide.Shapes.Placeholders(2)
             Dim fontSize As Integer = If(hasImage, AppConstants.CONTENT_FONT_SIZE_TWO_COLUMN, AppConstants.CONTENT_FONT_SIZE)
 
             With contentShape.TextFrame.TextRange
@@ -214,7 +215,7 @@ Namespace WordSlideGenerator
         Private Sub CreateImagePlaceholder(slide As Slide, imageDescription As String, slideIndex As Integer)
             Try
                 ' Ottieni il placeholder per le immagini (terzo placeholder nel layout TwoObjects)
-                Dim imagePlaceholder As Shape = slide.Shapes.Placeholders(3)
+                Dim imagePlaceholder As PPTShape = slide.Shapes.Placeholders(3)
 
                 ' Crea testo descrittivo per il placeholder
                 Dim placeholderText As String = $"[IMMAGINE]" & vbCrLf & vbCrLf &
