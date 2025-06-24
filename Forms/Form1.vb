@@ -1,14 +1,9 @@
-﻿Imports System.Drawing
-Imports System.IO
-Imports System.Windows.Forms
-Imports Microsoft.Office.Core
-Imports Microsoft.Office.Interop.PowerPoint
-Imports Microsoft.Office.Interop.Word
+﻿Imports System.IO
+
 Imports WordSlideGenerator.WordSlideGenerator
+Imports WordSlideGenerator.WordSlideGenerator.Core
 
 ' RIMOSSO: Imports WordSlideGenerator.WordSlideGenerator (RIDONDANTE)
-Imports PPT = Microsoft.Office.Interop.PowerPoint
-Imports WRD = Microsoft.Office.Interop.Word
 
 Public Class Form1
     Inherits Form
@@ -18,6 +13,7 @@ Public Class Form1
     Private officeManager As OfficeManager
     Private imageManager As ImageManager
     Private documentProcessor As DocumentProcessor
+    Private _processorHelper As DocumentProcessorHelper
     Private slideGenerator As SlideGenerator
 
     ' Controlli UI
@@ -45,7 +41,12 @@ Public Class Form1
         ' Inizializza gestori
         officeManager = New OfficeManager(logger)
         imageManager = New ImageManager(logger)
+
+        ' DocumentProcessor con costruttore originale (2 parametri)
         documentProcessor = New DocumentProcessor(logger, imageManager)
+
+        ' DocumentProcessorHelper
+        _processorHelper = New DocumentProcessorHelper(logger)
 
         slideGenerator = New SlideGenerator(officeManager.PowerPointPresentation, logger, imageManager, New SectionGenerator(logger))
 

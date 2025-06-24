@@ -105,6 +105,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Constants\AppConstants.vb" />
+    <Compile Include="Core\DocumentProcessorHelper.vb" />
     <Compile Include="Core\SectionGenerator.vb" />
     <Compile Include="Core\DocumentProcessor.vb" />
     <Compile Include="Core\SlideGenerator.vb" />

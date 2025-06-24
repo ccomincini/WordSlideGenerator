@@ -1,162 +1,252 @@
 Imports Microsoft.Office.Interop.Word
+Imports WordSlideGenerator.WordSlideGenerator
 
-Namespace WordSlideGenerator
-    Public Class DocumentProcessor
-        Private logger As Logger
-        Private imageManager As ImageManager
+Public Class DocumentProcessor
+    Private ReadOnly _logger As Logger
+    Private ReadOnly _imageManager As ImageManager
 
-        Public Sub New(logger As Logger, imageManager As ImageManager)
-            Me.logger = logger
-            Me.imageManager = imageManager
-        End Sub
+    ' Costruttore originale compatibile con Form1
+    Public Sub New(logger As Logger, imageManager As ImageManager)
+        _logger = logger
+        _imageManager = imageManager
+    End Sub
 
-        Public Function ProcessDocument(wordDoc As Document) As List(Of SlideContent)
-            Dim slides As New List(Of SlideContent)
-            Dim currentSlide As SlideContent = Nothing
-            Dim currentSection As String = ""
+    ''' <summary>
+    ''' Elabora un documento Word e estrae i contenuti delle slide - METODO PRINCIPALE
+    ''' </summary>
+    Public Function ProcessDocument(documento As Document) As List(Of SlideContent)
+        Dim slideContents As New List(Of SlideContent)
+        Dim slideCorrente As SlideContent = Nothing
+        Dim sezioneCorrente As String = "Generale"
 
-            logger.LogProcess("Inizio elaborazione documento...")
+        ' Inizializza helper per pattern recognition avanzato
+        Dim textRecognizer As New TextRecognizer(_logger)
+        Dim textCleaner As New TextCleaner(_logger)
 
-            For i As Integer = 1 To wordDoc.Paragraphs.Count
-                Dim paraText As String = CleanParagraphText(wordDoc.Paragraphs(i).Range.Text)
+        Try
+            _logger.LogInfo("[DocumentProcessor] Inizio elaborazione documento")
+            _logger.LogInfo($"[DocumentProcessor] Numero paragrafi: {documento.Paragraphs.Count}")
 
-                ' Salta righe vuote
-                If paraText = "" Then Continue For
+            For Each paragrafo As Paragraph In documento.Paragraphs
+                Dim testoRiga As String = paragrafo.Range.Text
+                If String.IsNullOrWhiteSpace(testoRiga) Then Continue For
 
-                ' Gestione MODULI DIDATTICI
-                If TextRecognizer.RiconosceModulo(paraText) Then
-                    ' Salva slide precedente se presente
-                    If currentSlide IsNot Nothing Then
-                        FinalizeSlideContent(currentSlide)
-                        slides.Add(currentSlide)
-                    End If
+                ' Debug logging - testo originale
+                _logger.LogInfo($"[DocumentProcessor] Elaborando riga: '{testoRiga.Trim()}'")
 
-                    Dim moduleTitle As String = TextRecognizer.EstraiTitoloModulo(paraText)
-                    logger.LogInfo($"📁 MODULO rilevato: {moduleTitle}")
+                ' FASE 1: Riconoscimento pattern e classificazione contenuto
+                Dim tipoContenuto As String = ClassificaContenuto(testoRiga, textRecognizer)
+                _logger.LogInfo($"[DocumentProcessor] Tipo contenuto riconosciuto: {tipoContenuto}")
 
-                    currentSlide = New SlideContent(moduleTitle, SlideContentType.CourseModule)
+                ' FASE 2: Elaborazione basata sul tipo di contenuto
+                Select Case tipoContenuto
+                    Case "MODULO"
+                        ' Nuovo modulo didattico
+                        Dim titoloModulo As String = textRecognizer.EstraiTitoloModulo(testoRiga)
+                        titoloModulo = textCleaner.PulisciTestoCompleto(titoloModulo)
 
-                    ' Gestione LEZIONI
-                ElseIf TextRecognizer.RiconosceLezione(paraText) Then
-                    ' Salva slide precedente se presente
-                    If currentSlide IsNot Nothing Then
-                        FinalizeSlideContent(currentSlide)
-                        slides.Add(currentSlide)
-                    End If
+                        slideCorrente = CreaSlideModulo(titoloModulo)
+                        slideContents.Add(slideCorrente)
+                        sezioneCorrente = titoloModulo
+                        _logger.LogSuccess($"[DocumentProcessor] Creato modulo: '{titoloModulo}'")
 
-                    Dim lessonTitle As String = TextRecognizer.EstraiTitoloLezione(paraText)
-                    logger.LogInfo($"📖 LEZIONE rilevata: {lessonTitle}")
+                    Case "LEZIONE"
+                        ' Nuova lezione
+                        Dim titoloLezione As String = textRecognizer.EstraiTitoloLezione(testoRiga)
+                        titoloLezione = textCleaner.PulisciTestoCompleto(titoloLezione)
 
-                    currentSlide = New SlideContent(lessonTitle, SlideContentType.Lesson)
+                        slideCorrente = CreaSlideLezione(titoloLezione, sezioneCorrente)
+                        slideContents.Add(slideCorrente)
+                        _logger.LogSuccess($"[DocumentProcessor] Creata lezione: '{titoloLezione}'")
 
-                    ' Gestione SLIDE NUMERATE
-                ElseIf TextRecognizer.RiconosceSlide(paraText) Then
-                    ' Salva slide precedente se presente
-                    If currentSlide IsNot Nothing Then
-                        FinalizeSlideContent(currentSlide)
-                        slides.Add(currentSlide)
-                    End If
+                    Case "SLIDE"
+                        ' Nuova slide di contenuto
+                        Dim titoloSlide As String = textRecognizer.EstraiTitoloSlide(testoRiga)
+                        titoloSlide = textCleaner.PulisciTestoCompleto(titoloSlide)
 
-                    Dim slideTitle As String = TextRecognizer.EstraiTitolo(paraText)
-                    currentSlide = New SlideContent(slideTitle, SlideContentType.Content)
-                    currentSection = ""
+                        slideCorrente = CreaSlideContenuto(titoloSlide, sezioneCorrente)
+                        slideContents.Add(slideCorrente)
+                        _logger.LogSuccess($"[DocumentProcessor] Creata slide: '{titoloSlide}'")
 
-                    ' Gestione CONTENUTI SLIDE
-                ElseIf currentSlide IsNot Nothing Then
-                    ProcessSlideContent(currentSlide, paraText, currentSection)
-                End If
+                    Case "CONTENUTO_SLIDE"
+                        ' 🎯 CONTENUTO PRINCIPALE DELLA SLIDE - FIX PER "Contenuto della slide:"
+                        If slideCorrente IsNot Nothing Then
+                            Dim contenutoOriginale As String = textRecognizer.EstraiContenutoSlide(testoRiga)
+                            _logger.LogInfo($"[DocumentProcessor] Contenuto PRIMA pulizia: '{contenutoOriginale}'")
+
+                            Dim contenutoPulito As String = textCleaner.PulisciTestoCompleto(contenutoOriginale)
+                            _logger.LogSuccess($"[DocumentProcessor] Contenuto DOPO pulizia: '{contenutoPulito}'")
+
+                            ' Validazione pulizia
+                            If Not textCleaner.ValidaPuliziaTesto(contenutoPulito) Then
+                                _logger.LogWarning($"[DocumentProcessor] Validazione pulizia fallita per: '{contenutoPulito}'")
+                            End If
+
+                            slideCorrente.Text = AggiungiTestoSlide(slideCorrente.Text, contenutoPulito)
+                        Else
+                            _logger.LogWarning($"[DocumentProcessor] Contenuto slide trovato senza slide corrente: '{testoRiga}'")
+                        End If
+
+                    Case "NOTE_SPEAKER"
+                        ' Note per il relatore
+                        If slideCorrente IsNot Nothing Then
+                            Dim noteOriginali As String = textRecognizer.EstraiNoteRelatore(testoRiga)
+                            Dim notePulite As String = textCleaner.PulisciTestoCompleto(noteOriginali)
+
+                            slideCorrente.SpeakerNotes = AggiungiTestoSlide(slideCorrente.SpeakerNotes, notePulite)
+                            _logger.LogInfo($"[DocumentProcessor] Aggiunte note speaker: '{notePulite}'")
+                        End If
+
+                    Case "IMMAGINE"
+                        ' Descrizione immagine
+                        If slideCorrente IsNot Nothing Then
+                            Dim descrizioneOriginale As String = textRecognizer.EstraiDescrizioneImmagine(testoRiga)
+                            Dim descrizionePulita As String = textCleaner.PulisciTestoPerPlaceholder(descrizioneOriginale)
+
+                            slideCorrente.ImageDescription = descrizionePulita
+                            _logger.LogInfo($"[DocumentProcessor] Immagine: '{descrizionePulita}'")
+
+                            ' Registra immagine nell'ImageManager
+                            _imageManager.RegisterImage(descrizionePulita)
+                        End If
+
+                    Case "NOTE_AGGIUNTIVE"
+                        ' Note aggiuntive generiche
+                        If slideCorrente IsNot Nothing Then
+                            Dim noteOriginali As String = textRecognizer.EstraiNoteAggiuntive(testoRiga)
+                            Dim notePulite As String = textCleaner.PulisciTestoCompleto(noteOriginali)
+
+                            slideCorrente.Notes = AggiungiTestoSlide(slideCorrente.Notes, notePulite)
+                            _logger.LogInfo($"[DocumentProcessor] Note aggiuntive: '{notePulite}'")
+                        End If
+
+                    Case Else
+                        ' Contenuto non classificato - aggiunge alla slide corrente se esiste
+                        If slideCorrente IsNot Nothing Then
+                            Dim testoGenerico As String = textCleaner.PulisciTestoCompleto(testoRiga)
+
+                            If Not String.IsNullOrWhiteSpace(testoGenerico) Then
+                                slideCorrente.Text = AggiungiTestoSlide(slideCorrente.Text, testoGenerico)
+                                _logger.LogInfo($"[DocumentProcessor] Aggiunto contenuto generico: '{testoGenerico}'")
+                            End If
+                        Else
+                            _logger.LogWarning($"[DocumentProcessor] Contenuto non classificato ignorato: '{testoRiga}'")
+                        End If
+                End Select
             Next
 
-            ' Salva ultima slide se presente
-            If currentSlide IsNot Nothing Then
-                FinalizeSlideContent(currentSlide)
-                slides.Add(currentSlide)
+            _logger.LogSuccess($"[DocumentProcessor] Elaborazione completata. {slideContents.Count} slide create")
+            Return slideContents
+
+        Catch ex As Exception
+            _logger.LogError($"[DocumentProcessor] Errore durante elaborazione: {ex.Message}")
+            Return slideContents
+        End Try
+    End Function
+
+    ''' <summary>
+    ''' Classifica il tipo di contenuto di una riga di testo
+    ''' </summary>
+    Private Function ClassificaContenuto(testoRiga As String, textRecognizer As TextRecognizer) As String
+        Try
+            ' Test in ordine di priorità (più specifico al meno specifico)
+
+            If textRecognizer.RiconosceModulo(testoRiga) Then
+                Return "MODULO"
             End If
 
-            logger.LogSuccess($"Elaborazione completata: {slides.Count} elementi processati")
-            Return slides
-        End Function
-
-        Private Function CleanParagraphText(text As String) As String
-            Dim cleanText As String = Trim(text)
-
-            ' Rimuovi carattere di fine paragrafo
-            If cleanText.Length > 0 Then
-                If Asc(cleanText.Substring(cleanText.Length - 1)) = 13 Then
-                    cleanText = cleanText.Substring(0, cleanText.Length - 1)
-                End If
+            If textRecognizer.RiconosceLezione(testoRiga) Then
+                Return "LEZIONE"
             End If
 
-            Return cleanText
-        End Function
-
-        Private Sub ProcessSlideContent(slide As SlideContent, paraText As String, ByRef currentSection As String)
-            If TextRecognizer.RiconosceVoceNarrante(paraText) OrElse TextRecognizer.RiconosceTestoNarrazione(paraText) Then
-                currentSection = "voce"
-                slide.SpeakerNotes = TextRecognizer.EstraiContenutoDopoEtichetta(paraText)
-
-            ElseIf TextRecognizer.RiconosceTestoSlide(paraText) Then
-                currentSection = "testo"
-                slide.Text = TextRecognizer.EstraiContenutoDopoEtichetta(paraText)
-
-            ElseIf TextRecognizer.RiconosceImmagine(paraText) Then
-                currentSection = "immagine"
-                slide.ImageDescription = TextRecognizer.EstraiContenutoDopoEtichetta(paraText)
-
-            ElseIf TextRecognizer.RiconosceAppunti(paraText) Then
-                currentSection = "appunti"
-                slide.Notes = TextRecognizer.EstraiContenutoDopoEtichetta(paraText)
-
-            Else
-                ' Continua sezione corrente con contenuto multiriga
-                AppendToCurrentSection(slide, paraText, currentSection)
-            End If
-        End Sub
-
-        Private Sub AppendToCurrentSection(slide As SlideContent, paraText As String, currentSection As String)
-            Select Case currentSection
-                Case "voce"
-                    If slide.SpeakerNotes <> "" Then slide.SpeakerNotes &= vbCrLf
-                    slide.SpeakerNotes &= paraText
-
-                Case "testo"
-                    If slide.Text <> "" Then slide.Text &= vbCrLf
-                    slide.Text &= paraText
-
-                Case "immagine"
-                    If slide.ImageDescription <> "" Then slide.ImageDescription &= vbCrLf
-                    slide.ImageDescription &= paraText
-
-                Case "appunti"
-                    If slide.Notes <> "" Then slide.Notes &= vbCrLf
-                    slide.Notes &= paraText
-            End Select
-        End Sub
-
-        ''' <summary>
-        ''' Finalizza il contenuto della slide applicando la pulizia del testo tramite TextCleaner
-        ''' </summary>
-        Private Sub FinalizeSlideContent(slide As SlideContent)
-            ' Applica pulizia testo con TextCleaner per tutti i campi testuali
-            If Not String.IsNullOrWhiteSpace(slide.Text) Then
-                slide.Text = TextCleaner.PulisciTestoCompleto(slide.Text)
+            If textRecognizer.RiconosceSlide(testoRiga) Then
+                Return "SLIDE"
             End If
 
-            If Not String.IsNullOrWhiteSpace(slide.SpeakerNotes) Then
-                slide.SpeakerNotes = TextCleaner.PulisciTestoCompleto(slide.SpeakerNotes)
+            ' 🎯 PRIORITÀ ALTA per "Contenuto della slide:"
+            If textRecognizer.RiconosceTestoSlide(testoRiga) Then
+                Return "CONTENUTO_SLIDE"
             End If
 
-            If Not String.IsNullOrWhiteSpace(slide.ImageDescription) Then
-                slide.ImageDescription = TextCleaner.PulisciTestoCompleto(slide.ImageDescription)
-                ' Registra immagine nel manager usando il nuovo overload semplificato
-                imageManager.RegisterImage(slide.ImageDescription)
+            If textRecognizer.RiconosceNoteRelatore(testoRiga) Then
+                Return "NOTE_SPEAKER"
             End If
 
-            If Not String.IsNullOrWhiteSpace(slide.Notes) Then
-                slide.Notes = TextCleaner.PulisciTestoCompleto(slide.Notes)
+            If textRecognizer.RiconosceImmagine(testoRiga) Then
+                Return "IMMAGINE"
             End If
 
-            logger.LogInfo($"✅ Slide finalizzata: {slide.Title}")
-        End Sub
-    End Class
-End Namespace
+            If textRecognizer.RiconosceNoteAggiuntive(testoRiga) Then
+                Return "NOTE_AGGIUNTIVE"
+            End If
+
+            Return "GENERICO"
+
+        Catch ex As Exception
+            _logger.LogError($"[DocumentProcessor] Errore classificazione contenuto: {ex.Message}")
+            Return "GENERICO"
+        End Try
+    End Function
+
+    ''' <summary>
+    ''' Crea una nuova slide per un modulo didattico
+    ''' </summary>
+    Private Function CreaSlideModulo(titolo As String) As SlideContent
+        Return New SlideContent With {
+            .Title = titolo,
+            .Text = "",
+            .SpeakerNotes = $"Introduzione al modulo: {titolo}",
+            .ImageDescription = "",
+            .Notes = "",
+            .SlideType = SlideContentType.CourseModule,
+            .ContentType = SlideContentType.CourseModule
+        }
+    End Function
+
+    ''' <summary>
+    ''' Crea una nuova slide per una lezione
+    ''' </summary>
+    Private Function CreaSlideLezione(titolo As String, modulo As String) As SlideContent
+        Return New SlideContent With {
+            .Title = titolo,
+            .Text = "",
+            .SpeakerNotes = $"Apertura lezione: {titolo} (Modulo: {modulo})",
+            .ImageDescription = "",
+            .Notes = "",
+            .SlideType = SlideContentType.Lesson,
+            .ContentType = SlideContentType.Lesson
+        }
+    End Function
+
+    ''' <summary>
+    ''' Crea una nuova slide di contenuto
+    ''' </summary>
+    Private Function CreaSlideContenuto(titolo As String, sezione As String) As SlideContent
+        Return New SlideContent With {
+            .Title = titolo,
+            .Text = "",
+            .SpeakerNotes = "",
+            .ImageDescription = "",
+            .Notes = "",
+            .SlideType = SlideContentType.Content,
+            .ContentType = SlideContentType.Content
+        }
+    End Function
+
+    ''' <summary>
+    ''' Aggiunge testo a un campo esistente gestendo correttamente le interruzioni di riga
+    ''' </summary>
+    Private Function AggiungiTestoSlide(testoEsistente As String, nuovoTesto As String) As String
+        If String.IsNullOrWhiteSpace(nuovoTesto) Then
+            Return testoEsistente
+        End If
+
+        If String.IsNullOrWhiteSpace(testoEsistente) Then
+            Return nuovoTesto
+        End If
+
+        ' Aggiungi con interruzione di riga appropriata
+        Return testoEsistente.TrimEnd() & vbCrLf & nuovoTesto.TrimStart()
+    End Function
+
+End Class
