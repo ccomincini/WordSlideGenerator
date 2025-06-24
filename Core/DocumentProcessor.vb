@@ -139,7 +139,7 @@ Public Class DocumentProcessor
             Return slideContents
 
         Catch ex As Exception
-            _logger.LogError($"[DocumentProcessor] Errore durante elaborazione: {ex.Message}")
+            _logger.LogError($"[DocumentProcessor] Errore durante elaborazione: {ex.Message}", ex)
             Return slideContents
         End Try
     End Function
@@ -183,7 +183,7 @@ Public Class DocumentProcessor
             Return "GENERICO"
 
         Catch ex As Exception
-            _logger.LogError($"[DocumentProcessor] Errore classificazione contenuto: {ex.Message}")
+            _logger.LogError($"[DocumentProcessor] Errore classificazione contenuto: {ex.Message}", ex)
             Return "GENERICO"
         End Try
     End Function

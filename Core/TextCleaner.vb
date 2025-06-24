@@ -41,7 +41,7 @@ Public Class TextCleaner
             Return testoPulito.Trim()
 
         Catch ex As Exception
-            _logger.LogError($"[TextCleaner] Errore durante pulizia testo: {ex.Message}")
+            _logger.LogError($"[TextCleaner] Errore durante pulizia testo: {ex.Message}", ex)
             Return testo ' Ritorna il testo originale in caso di errore
         End Try
     End Function
@@ -79,7 +79,7 @@ Public Class TextCleaner
             Return testoPulito.Trim()
 
         Catch ex As Exception
-            _logger.LogError($"[TextCleaner] Errore pulizia placeholder: {ex.Message}")
+            _logger.LogError($"[TextCleaner] Errore pulizia placeholder: {ex.Message}", ex)
             Return "Immagine descrittiva"
         End Try
     End Function

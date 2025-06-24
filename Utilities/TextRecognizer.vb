@@ -104,7 +104,7 @@ Public Class TextRecognizer
             Return False
 
         Catch ex As Exception
-            _logger.LogError($"[TextRecognizer] Errore riconoscimento slide: {ex.Message}")
+            _logger.LogError($"[TextRecognizer] Errore riconoscimento slide: {ex.Message}", ex)
             Return False
         End Try
     End Function
@@ -242,7 +242,7 @@ Public Class TextRecognizer
             Return If(String.IsNullOrWhiteSpace(titolo), "Modulo Senza Titolo", titolo)
 
         Catch ex As Exception
-            _logger.LogError($"[TextRecognizer] Errore estrazione titolo modulo: {ex.Message}")
+            _logger.LogError($"[TextRecognizer] Errore estrazione titolo modulo: {ex.Message}", ex)
             Return "Modulo Senza Titolo"
         End Try
     End Function
@@ -261,7 +261,7 @@ Public Class TextRecognizer
             Return If(String.IsNullOrWhiteSpace(titolo), "Lezione Senza Titolo", titolo)
 
         Catch ex As Exception
-            _logger.LogError($"[TextRecognizer] Errore estrazione titolo lezione: {ex.Message}")
+            _logger.LogError($"[TextRecognizer] Errore estrazione titolo lezione: {ex.Message}", ex)
             Return "Lezione Senza Titolo"
         End Try
     End Function
@@ -298,7 +298,7 @@ Public Class TextRecognizer
             Return If(String.IsNullOrWhiteSpace(titoloGenerico), "Slide Senza Titolo", titoloGenerico)
 
         Catch ex As Exception
-            _logger.LogError($"[TextRecognizer] Errore estrazione titolo slide: {ex.Message}")
+            _logger.LogError($"[TextRecognizer] Errore estrazione titolo slide: {ex.Message}", ex)
             Return "Slide Senza Titolo"
         End Try
     End Function
@@ -338,7 +338,7 @@ Public Class TextRecognizer
             Return testo.Trim()
 
         Catch ex As Exception
-            _logger.LogError($"[TextRecognizer] Errore estrazione contenuto slide: {ex.Message}")
+            _logger.LogError($"[TextRecognizer] Errore estrazione contenuto slide: {ex.Message}", ex)
             Return testo.Trim()
         End Try
     End Function
@@ -369,7 +369,7 @@ Public Class TextRecognizer
             Return testo.Trim()
 
         Catch ex As Exception
-            _logger.LogError($"[TextRecognizer] Errore estrazione note relatore: {ex.Message}")
+            _logger.LogError($"[TextRecognizer] Errore estrazione note relatore: {ex.Message}", ex)
             Return testo.Trim()
         End Try
     End Function
@@ -401,7 +401,7 @@ Public Class TextRecognizer
             Return testo.Trim()
 
         Catch ex As Exception
-            _logger.LogError($"[TextRecognizer] Errore estrazione descrizione immagine: {ex.Message}")
+            _logger.LogError($"[TextRecognizer] Errore estrazione descrizione immagine: {ex.Message}", ex)
             Return testo.Trim()
         End Try
     End Function
@@ -431,7 +431,7 @@ Public Class TextRecognizer
             Return testo.Trim()
 
         Catch ex As Exception
-            _logger.LogError($"[TextRecognizer] Errore estrazione note aggiuntive: {ex.Message}")
+            _logger.LogError($"[TextRecognizer] Errore estrazione note aggiuntive: {ex.Message}", ex)
             Return testo.Trim()
         End Try
     End Function

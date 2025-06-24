@@ -1,7 +1,6 @@
 ﻿Imports System.IO
 
 Imports WordSlideGenerator.WordSlideGenerator
-Imports WordSlideGenerator.WordSlideGenerator.Core
 
 ' RIMOSSO: Imports WordSlideGenerator.WordSlideGenerator (RIDONDANTE)
 
